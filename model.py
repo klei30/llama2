@@ -41,7 +41,7 @@ def retrieval_qa_chain(llm, prompt, db):
 # Function to load the language model
 def load_llm():
     llm = CTransformers(
-        model = AutoModelForCausalLM.from_pretrained("TheBloke/dolphin-2.2.1-mistral-7B-GGUF")
+        model = AutoModelForCausalLM.from_pretrained("TheBloke/dolphin-2.2.1-mistral-7B-GGUF"),
         model_type="llama",
         max_new_tokens=2000,
         temperature=0.9
