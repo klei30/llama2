@@ -1,3 +1,4 @@
+# Import necessary libraries
 from langchain.document_loaders import PyPDFLoader, DirectoryLoader
 from langchain import PromptTemplate
 from langchain.embeddings import HuggingFaceEmbeddings
@@ -5,11 +6,14 @@ from langchain.vectorstores import FAISS
 from langchain.llms import CTransformers
 from langchain.chains import RetrievalQA
 import chainlit as cl
-from ctransformers import AutoModelForCausalLM
+from transformers import AutoModelForCausalLM
 
+# Path to the FAISS vector store
 DB_FAISS_PATH = 'vectorstore/db_faiss'
 
-custom_prompt_template = """Act as a medical assistant. when people say hello, also say hello back to them. Be polite and warm.Use the following pieces of information to answer the user's question.
+# Custom prompt template for the chatbot
+custom_prompt_template = """
+Act as a medical assistant. When people say hello, also say hello back to them. Be polite and warm. Use the following pieces of information to answer the user's question.
 If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
 Context: {context}
@@ -19,36 +23,32 @@ Only return the helpful answer below and nothing else.
 Helpful answer:
 """
 
+# Function to set the custom prompt template
 def set_custom_prompt():
-    """
-    Prompt template for QA retrieval for each vectorstore
-    """
     prompt = PromptTemplate(template=custom_prompt_template,
                             input_variables=['context', 'question'])
     return prompt
 
-#Retrieval QA Chain
+# Function to create the Retrieval QA Chain
 def retrieval_qa_chain(llm, prompt, db):
     qa_chain = RetrievalQA.from_chain_type(llm=llm,
-                                       chain_type='stuff',
-                                       retriever=db.as_retriever(search_kwargs={'k': 2}),
-                                       return_source_documents=True,
-                                       chain_type_kwargs={'prompt': prompt}
-                                       )
+                                           chain_type='stuff',
+                                           retriever=db.as_retriever(search_kwargs={'k': 2}),
+                                           return_source_documents=True,
+                                           chain_type_kwargs={'prompt': prompt})
     return qa_chain
 
-#Loading the model
+# Function to load the language model
 def load_llm():
-    # Load the locally downloaded model here
     llm = CTransformers(
-        model = "TheBloke/dolphin-2.2.1-mistral-7B-GGUF",
-        model_type="mistral",
-        max_new_tokens = 2000,
-        temperature = 0.9
+        model = AutoModelForCausalLM.from_pretrained("TheBloke/dolphin-2.2.1-mistral-7B-GGUF")
+        model_type="llama",
+        max_new_tokens=2000,
+        temperature=0.9
     )
     return llm
 
-#QA Model Function
+# Function to initialize the QA Bot
 def qa_bot():
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2",
                                        model_kwargs={'device': 'cpu'})
@@ -56,16 +56,15 @@ def qa_bot():
     llm = load_llm()
     qa_prompt = set_custom_prompt()
     qa = retrieval_qa_chain(llm, qa_prompt, db)
-
     return qa
 
-#output function
+# Function to generate the final response
 def final_result(query):
     qa_result = qa_bot()
     response = qa_result({'query': query})
     return response
 
-#chainlit code
+# ChainLit code for the chatbot
 @cl.on_chat_start
 async def start():
     chain = qa_bot()
@@ -73,7 +72,6 @@ async def start():
     await msg.send()
     msg.content = "Hi, Welcome to Medical Bot. What is your query?"
     await msg.update()
-
     cl.user_session.set("chain", chain)
 
 @cl.on_message
